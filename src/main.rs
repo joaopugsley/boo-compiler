@@ -195,9 +195,24 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 'a'..='z' | 'A'..='Z' | '_' => self.tokenize_identifier()?,
-                '+' | '*' | '/' | '>' | '=' | '(' | ')' | '{' | '}' | ',' => {
-                    self.tokenize_operator()?
+                '/' => {
+                    // consume the '/'
+                    self.next();
+                    match self.peek() {
+                        Some('/') => {
+                            // consume the '/'
+                            self.next();
+                            self.consume_while(|c| c != '\n');
+                            if let Some('\n') = self.peek() {
+                                // consume the '\n'
+                                self.next();
+                            }
+                            continue;
+                        }
+                        _ => Token::Operator(Operator::Divide),
+                    }
                 }
+                '+' | '*' | '>' | '=' | '(' | ')' | '{' | '}' | ',' => self.tokenize_operator()?,
                 ';' => {
                     self.next();
                     continue;
