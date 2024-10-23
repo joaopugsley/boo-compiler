@@ -1,13 +1,16 @@
 use std::{
     fs::{self},
-    iter::Peekable,
     str::Chars,
 };
+
+use parser::Parser;
+
+mod parser;
 
 #[derive(Clone, Debug)]
 enum Token {
     Identifier(String),
-    Number(i64),
+    Number(f64),
     Operator(Operator),
     Keyword(Keyword),
     Semi,
@@ -63,8 +66,26 @@ impl<'a> Lexer<'a> {
     }
 
     fn tokenize_number(&mut self) -> Token {
-        let num_str = self.consume_while(|c| c.is_digit(10));
-        Token::Number(num_str.parse::<i64>().unwrap())
+        let mut num_str = String::new();
+
+        // negative sign
+        if let Some('-') = self.peek() {
+            num_str.push('-');
+            self.next();
+        };
+
+        // integer part
+        num_str.push_str(&self.consume_while(|c| c.is_digit(10)));
+
+        // decimal point
+        if let Some('.') = self.peek() {
+            num_str.push('.');
+            self.next();
+            // fractional part
+            num_str.push_str(&self.consume_while(|c| c.is_digit(10)));
+        }
+
+        Token::Number(num_str.parse::<f64>().unwrap())
     }
 
     fn tokenize_identifier(&mut self) -> Token {
@@ -94,8 +115,23 @@ impl<'a> Lexer<'a> {
         while let Some(c) = self.peek() {
             let token = match c {
                 '0'..='9' => self.tokenize_number(),
+                '-' => {
+                    let mut result = Token::Operator(Operator::Minus);
+
+                    if let Some(next_char) = self.input.clone().next() {
+                        if next_char.is_digit(10) {
+                            result = self.tokenize_number();
+                        }
+                    }
+
+                    if matches!(result, Token::Operator(Operator::Minus)) {
+                        self.next();
+                    }
+
+                    result
+                }
                 'a'..='z' | 'A'..='Z' | '_' => self.tokenize_identifier(),
-                '+' | '-' | '*' | '/' => self.tokenize_operator(),
+                '+' | '*' | '/' => self.tokenize_operator(),
                 ';' => {
                     self.next();
                     Token::Semi
