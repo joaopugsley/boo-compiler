@@ -11,13 +11,30 @@ mod parser;
 enum Token {
     Identifier(String),
     Number(f64),
+    String(String),
+    Boolean(bool),
     Operator(Operator),
     Keyword(Keyword),
-    Semi,
+    Type(Type),
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Arrow,
+    Comma,
+    Equals,
+}
+
+#[derive(Clone, Debug)]
+enum Type {
+    Str,
+    Num,
+    Bool,
 }
 
 #[derive(Clone, Debug)]
 enum Keyword {
+    Fun,
     Return,
 }
 
@@ -65,7 +82,7 @@ impl<'a> Lexer<'a> {
         result
     }
 
-    fn tokenize_number(&mut self) -> Token {
+    fn tokenize_number(&mut self) -> Result<Token, String> {
         let mut num_str = String::new();
 
         // negative sign
@@ -75,85 +92,139 @@ impl<'a> Lexer<'a> {
         };
 
         // integer part
-        num_str.push_str(&self.consume_while(|c| c.is_digit(10)));
+        let int_part = self.consume_while(|c| c.is_digit(10));
+        if int_part.is_empty() && num_str == "-" {
+            return Err("Expected digits after '-'".to_string());
+        }
+        num_str.push_str(&int_part);
 
         // decimal point
         if let Some('.') = self.peek() {
-            num_str.push('.');
             self.next();
-            // fractional part
-            num_str.push_str(&self.consume_while(|c| c.is_digit(10)));
-        }
+            num_str.push('.');
+            let dec_part = self.consume_while(|c| c.is_digit(10));
+            if dec_part.is_empty() {
+                return Err("Expected digits after '.'".to_string());
+            }
+            num_str.push_str(&dec_part);
+        };
 
-        Token::Number(num_str.parse::<f64>().unwrap())
+        num_str
+            .parse::<f64>()
+            .map_err(|e| format!("Failed to parse number: {}", e))
+            .map(Token::Number)
     }
 
-    fn tokenize_identifier(&mut self) -> Token {
-        let ident_str = self.consume_while(|c| c.is_alphanumeric() || c == '_');
-        if ident_str == "return" {
-            return Token::Keyword(Keyword::Return);
-        };
-        Token::Identifier(ident_str)
-    }
-
-    fn tokenize_operator(&mut self) -> Token {
-        let op_str: Option<char> = self.peek();
-        let token = match op_str {
-            Some('+') => Token::Operator(Operator::Plus),
-            Some('-') => Token::Operator(Operator::Minus),
-            Some('*') => Token::Operator(Operator::Multiply),
-            Some('/') => Token::Operator(Operator::Divide),
-            _ => unimplemented!("Tokenize operator {:?}", op_str),
-        };
+    fn tokenize_string(&mut self) -> Result<Token, String> {
+        // consume the opening quote
         self.next();
-        token
+        let str_content = self.consume_while(|c| c != '"');
+        match self.peek() {
+            Some('"') => {
+                // consume the closing quote
+                self.next();
+                Ok(Token::String(str_content))
+            }
+            Some(c) => Err(format!("Unexpected character in string: {}", c)),
+            _ => Err("Unexpected end of input".to_string()),
+        }
     }
 
-    fn tokenize(&mut self) -> Vec<Token> {
+    fn tokenize_identifier(&mut self) -> Result<Token, String> {
+        let ident_str = self.consume_while(|c| c.is_alphanumeric() || c == '_');
+
+        let token = match ident_str.as_str() {
+            // keywords
+            "fun" => Token::Keyword(Keyword::Fun),
+            "return" => Token::Keyword(Keyword::Return),
+
+            // types
+            "str" => Token::Type(Type::Str),
+            "num" => Token::Type(Type::Num),
+            "bool" => Token::Type(Type::Bool),
+
+            // booleans
+            "true" => Token::Boolean(true),
+            "false" => Token::Boolean(false),
+
+            // regular identifier
+            _ => Token::Identifier(ident_str),
+        };
+
+        Ok(token)
+    }
+
+    fn tokenize_operator(&mut self) -> Result<Token, String> {
+        let op_char = self.peek().ok_or("Expected operator, found end of input")?;
+
+        let token = match op_char {
+            '+' => Token::Operator(Operator::Plus),
+            '-' => Token::Operator(Operator::Minus),
+            '*' => Token::Operator(Operator::Multiply),
+            '/' => Token::Operator(Operator::Divide),
+            '>' => Token::Arrow,
+            '=' => Token::Equals,
+            '(' => Token::LeftParen,
+            ')' => Token::RightParen,
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
+            ',' => Token::Comma,
+            c => return Err(format!("Unexpected operator: {}", c)),
+        };
+
+        self.next();
+        Ok(token)
+    }
+
+    fn tokenize(&mut self) -> Result<Vec<Token>, String> {
         let mut tokens = Vec::new();
 
         while let Some(c) = self.peek() {
             let token = match c {
-                '0'..='9' => self.tokenize_number(),
+                '0'..='9' => self.tokenize_number()?,
+                '"' => self.tokenize_string()?,
                 '-' => {
-                    let mut result = Token::Operator(Operator::Minus);
-
                     if let Some(next_char) = self.input.clone().next() {
                         if next_char.is_digit(10) {
-                            result = self.tokenize_number();
+                            self.tokenize_number()?
+                        } else {
+                            self.tokenize_operator()?
                         }
+                    } else {
+                        self.tokenize_operator()?
                     }
-
-                    if matches!(result, Token::Operator(Operator::Minus)) {
-                        self.next();
-                    }
-
-                    result
                 }
-                'a'..='z' | 'A'..='Z' | '_' => self.tokenize_identifier(),
-                '+' | '*' | '/' => self.tokenize_operator(),
+                'a'..='z' | 'A'..='Z' | '_' => self.tokenize_identifier()?,
+                '+' | '*' | '/' | '>' | '=' | '(' | ')' | '{' | '}' | ',' => {
+                    self.tokenize_operator()?
+                }
                 ';' => {
                     self.next();
-                    Token::Semi
+                    continue;
                 }
-                ch => {
-                    if ch.is_whitespace() {
-                        self.next();
-                        continue;
-                    }
-                    unimplemented!("Tokenize {:?}", c)
+                c if c.is_whitespace() => {
+                    self.next();
+                    continue;
                 }
+                c => return Err(format!("Unexpected character: {}", c)),
             };
             tokens.push(token);
         }
 
-        tokens
+        Ok(tokens)
     }
 }
 
-fn main() {
+fn main() -> Result<(), String> {
     let contents = fs::read_to_string("test.boo").expect("Unable to read file to string");
     let mut lexer = Lexer::new(&contents);
-    let tokens = lexer.tokenize();
-    println!("Tokens: {:?}", tokens);
+    let tokens = lexer
+        .tokenize()
+        .map_err(|e| format!("Lexer error: {}", e))?;
+    let mut parser = Parser::new(tokens);
+    let ast = parser
+        .parse_program()
+        .map_err(|e| format!("Parser error: {}", e))?;
+    println!("AST: {:?}", ast);
+    Ok(())
 }
