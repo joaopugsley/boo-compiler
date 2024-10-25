@@ -37,6 +37,7 @@ pub enum ASTNode {
 pub struct Parameter {
     name: String,
     param_type: Type,
+    optional: bool,
 }
 
 pub struct Parser {
@@ -87,7 +88,17 @@ impl Parser {
     fn parse_parameter(&mut self) -> Result<Parameter, String> {
         match (self.tokens.next(), self.tokens.next()) {
             (Some(Token::Type(param_type)), Some(Token::Identifier(name))) => {
-                Ok(Parameter { name, param_type })
+                let mut optional = false;
+                if let Some(Token::Star) = self.tokens.peek() {
+                    self.tokens.next();
+                    optional = true;
+                }
+
+                Ok(Parameter {
+                    name,
+                    param_type,
+                    optional,
+                })
             }
             (Some(token1), Some(token2)) => Err(format!(
                 "Expected type and identifier, found {:?} {:?}",

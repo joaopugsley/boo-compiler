@@ -16,6 +16,7 @@ enum Token {
     Operator(Operator),
     Keyword(Keyword),
     Type(Type),
+    Star,
     LeftParen,
     RightParen,
     LeftBrace,
@@ -212,7 +213,11 @@ impl<'a> Lexer<'a> {
                         _ => Token::Operator(Operator::Divide),
                     }
                 }
-                '+' | '*' | '>' | '=' | '(' | ')' | '{' | '}' | ',' => self.tokenize_operator()?,
+                '*' => {
+                    self.next();
+                    Token::Star
+                }
+                '+' | '>' | '=' | '(' | ')' | '{' | '}' | ',' => self.tokenize_operator()?,
                 ';' => {
                     self.next();
                     continue;

@@ -1,5 +1,5 @@
 // now we have comments :O
-fun add(num x, num y) > num {
+fun add(num x, num y*) > num {
   return x + y;
 };
 
