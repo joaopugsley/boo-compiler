@@ -1,6 +1,6 @@
 use std::{iter::Peekable, vec};
 
-use crate::{Keyword, Operator, Token, Type};
+use crate::lexer::{Keyword, Operator, Token, Type};
 
 #[derive(Clone, Debug)]
 pub enum ASTNode {
