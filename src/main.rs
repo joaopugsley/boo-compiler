@@ -3,6 +3,7 @@ use std::fs;
 use lexer::Lexer;
 use parser::Parser;
 
+mod analyzer;
 mod lexer;
 mod parser;
 
@@ -20,6 +21,14 @@ fn main() -> Result<(), String> {
         .map_err(|e| format!("Parser error: {}", e))?;
 
     println!("AST: {:#?}", ast);
+
+    let mut typechecker = analyzer::TypeChecker::new();
+    let result = typechecker.check_program(ast);
+
+    match result {
+        Ok(_) => println!("Typechecker: OK"),
+        Err(e) => println!("Typechecker error: {}", e),
+    }
 
     Ok(())
 }

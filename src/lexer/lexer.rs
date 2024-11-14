@@ -19,11 +19,12 @@ pub enum Token {
     Equals,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Type {
     Str,
     Num,
     Bool,
+    Void,
 }
 
 #[derive(Clone, Debug)]

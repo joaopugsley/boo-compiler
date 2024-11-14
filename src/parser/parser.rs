@@ -35,9 +35,9 @@ pub enum ASTNode {
 
 #[derive(Clone, Debug)]
 pub struct Parameter {
-    name: String,
-    param_type: Type,
-    optional: bool,
+    pub name: String,
+    pub param_type: Type,
+    pub optional: bool,
 }
 
 pub struct Parser {
