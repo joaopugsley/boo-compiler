@@ -9,6 +9,7 @@ pub enum Token {
     Operator(Operator),
     Keyword(Keyword),
     Type(Type),
+    Period,
     LeftParen,
     RightParen,
     LeftBrace,
@@ -293,6 +294,10 @@ impl<'a> Lexer<'a> {
                 }
                 '+' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%' => {
                     self.tokenize_operator()?
+                }
+                '.' => {
+                    self.next();
+                    Token::Period
                 }
                 ';' => {
                     self.next();

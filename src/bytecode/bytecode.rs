@@ -41,7 +41,8 @@ pub enum Instruction {
 
     // functions
     DeclareFunction(String, Vec<Parameter>, Option<Type>),
-    Call(String, usize), // function name, arg count
+    Call(String, usize),       // function name, arg count
+    CallMethod(String, usize), // method name, arg count
     Return,
 
     // environment
@@ -53,6 +54,7 @@ pub enum Instruction {
 }
 
 pub struct Bytecode {
+    program: ASTNode,
     instructions: Vec<Instruction>,
     jump_points: Vec<(usize, String)>,
     labels: HashMap<String, usize>,
@@ -60,8 +62,9 @@ pub struct Bytecode {
 }
 
 impl Bytecode {
-    pub fn new() -> Self {
+    pub fn new(program: ASTNode) -> Self {
         Self {
+            program,
             instructions: Vec::new(),
             jump_points: Vec::new(),
             labels: HashMap::new(),
@@ -104,8 +107,10 @@ impl Bytecode {
         }
     }
 
-    pub fn from_program(&mut self, node: ASTNode) -> Result<Vec<Instruction>, String> {
-        match node {
+    pub fn compile(&mut self) -> Result<Vec<Instruction>, String> {
+        let program = self.program.clone();
+
+        match program {
             ASTNode::Program(statements) => {
                 for stmt in statements {
                     self.compile_node(stmt)?;
@@ -353,6 +358,20 @@ impl Bytecode {
                 // call function with number of arguments
                 self.instructions
                     .push(Instruction::Call(name, arguments.len()));
+            }
+            ASTNode::MethodCall {
+                object,
+                method,
+                arguments,
+            } => {
+                self.compile_node(*object)?;
+
+                for arg in arguments.clone() {
+                    self.compile_node(arg)?;
+                }
+
+                self.instructions
+                    .push(Instruction::CallMethod(method, arguments.len()));
             }
             ASTNode::IfStatement {
                 condition,

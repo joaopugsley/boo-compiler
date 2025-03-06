@@ -11,16 +11,36 @@ pub struct FunctionSignature {
 }
 
 pub struct TypeChecker {
+    program: ASTNode,
     variables: Vec<HashMap<String, Type>>,
     functions: HashMap<String, FunctionSignature>,
 }
 
 impl TypeChecker {
-    pub fn new() -> Self {
-        Self {
+    pub fn new(program: ASTNode) -> Self {
+        let mut checker = Self {
+            program,
             variables: Vec::new(),
             functions: HashMap::new(),
-        }
+        };
+
+        // register stdlib
+        checker.register_stdlib();
+        checker
+    }
+
+    fn register_stdlib(&mut self) {
+        self.functions.insert(
+            "print".to_string(),
+            FunctionSignature {
+                parameters: vec![Parameter {
+                    name: "value".to_string(),
+                    param_type: Type::Str,
+                    optional: false,
+                }],
+                return_type: Some(Type::Void),
+            },
+        );
     }
 
     fn enter_scope(&mut self) {
@@ -43,8 +63,9 @@ impl TypeChecker {
         self.variables.last_mut().unwrap()
     }
 
-    pub fn check_program(&mut self, node: ASTNode) -> Result<(), String> {
-        match node {
+    pub fn check_program(&mut self) -> Result<(), String> {
+        let program = self.program.clone();
+        match program {
             ASTNode::Program(nodes) => Ok(for node in nodes {
                 self.check_node(node)?;
             }),

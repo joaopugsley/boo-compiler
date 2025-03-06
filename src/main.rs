@@ -9,44 +9,54 @@ mod analyzer;
 mod bytecode;
 mod lexer;
 mod parser;
+mod stdlib;
 mod vm;
 
 fn main() -> Result<(), String> {
     let contents = fs::read_to_string("test.boo").expect("Unable to read file to string");
 
     let mut lexer = Lexer::new(&contents);
-    let tokens = lexer
-        .tokenize()
-        .map_err(|e| format!("Lexer error: {}", e))?;
+    let tokens = lexer.tokenize();
 
-    println!("Tokens: {:#?}", tokens);
-
-    let mut parser = Parser::new(tokens);
-    let ast = parser
-        .parse_program()
-        .map_err(|e| format!("Parser error: {}", e))?;
-
-    println!("AST: {:#?}", ast);
-
-    let mut typechecker = analyzer::TypeChecker::new();
-    let result = typechecker.check_program(ast.clone());
-
-    match result {
-        Ok(_) => println!("Typechecker: OK"),
-        Err(e) => println!("Typechecker error: {}", e),
+    if tokens.is_err() {
+        return Err(format!("Lexer error: {}", tokens.err().unwrap()));
     }
 
-    let mut bytecode_compiler = Bytecode::new();
-    let bytecode = bytecode_compiler.from_program(ast)?;
-    println!("Bytecode: {:#?}", bytecode);
+    // println!("Tokens: {:#?}", tokens);
 
-    let mut vm = VM::new(bytecode);
+    let mut parser = Parser::new(tokens.unwrap());
+    let ast = parser.parse_program();
+
+    if ast.is_err() {
+        return Err(format!("Parser error: {}", ast.err().unwrap()));
+    }
+
+    // println!("AST: {:#?}", ast);
+
+    // let mut typechecker = analyzer::TypeChecker::new(ast.clone().unwrap());
+    // let result = typechecker.check_program();
+
+    // if result.is_err() {
+    //     return Err(format!("Typechecker error: {}", result.err().unwrap()));
+    // }
+
+    let mut bytecode_compiler = Bytecode::new(ast.unwrap());
+    let bytecode = bytecode_compiler.compile();
+
+    if bytecode.is_err() {
+        return Err(format!(
+            "Bytecode compiler error: {}",
+            bytecode.err().unwrap()
+        ));
+    }
+
+    // println!("Bytecode: {:#?}", bytecode);
+
+    let mut vm = VM::new(bytecode.unwrap());
     let result = vm.run();
 
-    match result {
-        Ok(Some(value)) => println!("VM: OK, result: {:?}", value),
-        Ok(None) => println!("VM: OK, no result"),
-        Err(e) => println!("VM error: {}", e),
+    if result.is_err() {
+        println!("VM error: {}", result.err().unwrap());
     }
 
     Ok(())

@@ -1,6 +1,10 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::{bytecode::Instruction, parser::Parameter};
+use crate::{
+    bytecode::Instruction,
+    parser::Parameter,
+    stdlib::stdlib::{register_stdlib, NativeFn},
+};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -23,23 +27,61 @@ struct CallFrame {
 }
 
 pub struct VM {
+    debug: bool,
     instructions: Vec<Instruction>,
     pc: usize,
     stack: Vec<Value>,
     scopes: Vec<HashMap<String, Value>>,
-    functions: HashMap<String, Function>,
     call_stack: Vec<CallFrame>,
+    functions: HashMap<String, Function>,
+    native_functions: HashMap<String, NativeFn>,
+    string_methods: HashMap<String, NativeFn>,
+    number_methods: HashMap<String, NativeFn>,
+    boolean_methods: HashMap<String, NativeFn>,
 }
 
 impl VM {
     pub fn new(instructions: Vec<Instruction>) -> Self {
-        Self {
+        let mut vm = Self {
+            debug: false,
             instructions,
             pc: 0,
             stack: Vec::new(),
             scopes: vec![HashMap::new()], // global scope !
-            functions: HashMap::new(),
             call_stack: Vec::new(),
+            functions: HashMap::new(),
+
+            // stdlib
+            native_functions: HashMap::new(),
+            string_methods: HashMap::new(),
+            number_methods: HashMap::new(),
+            boolean_methods: HashMap::new(),
+        };
+
+        register_stdlib(&mut vm);
+
+        vm
+    }
+
+    pub fn register_native_function(&mut self, name: &str, fun: NativeFn) {
+        self.native_functions.insert(name.to_string(), fun);
+    }
+
+    pub fn register_string_method(&mut self, name: &str, fun: NativeFn) {
+        self.string_methods.insert(name.to_string(), fun);
+    }
+
+    pub fn register_number_method(&mut self, name: &str, fun: NativeFn) {
+        self.number_methods.insert(name.to_string(), fun);
+    }
+
+    pub fn register_boolean_method(&mut self, name: &str, fun: NativeFn) {
+        self.boolean_methods.insert(name.to_string(), fun);
+    }
+
+    fn debug_print(&self, message: String) {
+        if self.debug {
+            println!("{}", message);
         }
     }
 
@@ -48,7 +90,7 @@ impl VM {
     }
 
     fn push(&mut self, value: Value) {
-        println!("Pushing value: {:?}", value);
+        self.debug_print(format!("Pushing value: {:?}", value));
         self.stack.push(value);
     }
 
@@ -74,7 +116,7 @@ impl VM {
 
         while self.pc < self.instructions.len() {
             let ix = self.instructions[self.pc].clone();
-            println!("Executing instruction: {:?}", ix);
+            self.debug_print(format!("Executing instruction: {:?}", ix));
 
             match ix {
                 // stack oeprations
@@ -297,6 +339,23 @@ impl VM {
                     );
                 }
                 Instruction::Call(name, arg_count) => {
+                    // check for native functions
+                    if self.native_functions.contains_key(&name) {
+                        let native_fn = self.native_functions.get(&name).unwrap().clone();
+
+                        let mut args = Vec::with_capacity(arg_count);
+                        for _ in 0..arg_count {
+                            let value = self.pop()?;
+                            args.insert(0, value);
+                        }
+
+                        // call the native function
+                        let result = native_fn(self, args)?;
+                        self.push(result);
+                        self.pc += 1;
+                        continue;
+                    }
+
                     let function = match self.functions.get(&name) {
                         Some(f) => f.clone(),
                         None => return Err(format!("Usage of undeclared function '{}'", name)),
@@ -319,7 +378,7 @@ impl VM {
                     };
 
                     // pop arguments in reverse (last arg first)
-                    let mut args = VecDeque::new();
+                    let mut args = VecDeque::with_capacity(arg_count);
                     for _ in 0..arg_count {
                         args.push_front(self.pop()?);
                     }
@@ -344,6 +403,54 @@ impl VM {
                     // jump to function body
                     self.pc = function.address;
                     continue;
+                }
+                Instruction::CallMethod(name, arg_count) => {
+                    // collect arguments
+                    let mut args = Vec::with_capacity(arg_count);
+                    for _ in 0..arg_count {
+                        let value = self.pop()?;
+                        args.insert(0, value);
+                    }
+
+                    // get the object
+                    let object = self.pop()?;
+
+                    // add the object as the first argument for our native method handler
+                    let mut full_args = vec![object.clone()];
+                    full_args.extend(args);
+
+                    match object {
+                        Value::String(_) => {
+                            if self.string_methods.contains_key(&name) {
+                                let native_fn = self.string_methods.get(&name).unwrap().clone();
+                                let result = native_fn(self, full_args)?;
+                                self.push(result);
+                                self.pc += 1;
+                                continue;
+                            }
+                        }
+                        Value::Number(_) => {
+                            if self.number_methods.contains_key(&name) {
+                                let native_fn = self.number_methods.get(&name).unwrap().clone();
+                                let result = native_fn(self, full_args)?;
+                                self.push(result);
+                                self.pc += 1;
+                                continue;
+                            }
+                        }
+                        Value::Boolean(_) => {
+                            if self.boolean_methods.contains_key(&name) {
+                                let native_fn = self.boolean_methods.get(&name).unwrap().clone();
+                                let result = native_fn(self, full_args)?;
+                                self.push(result);
+                                self.pc += 1;
+                                continue;
+                            }
+                        }
+                        _ => {
+                            return Err(format!("Cannot call method '{}' on {:?}", name, object));
+                        }
+                    }
                 }
                 Instruction::Return => {
                     let return_value = if !self.stack.is_empty() {

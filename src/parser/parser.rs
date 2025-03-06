@@ -18,6 +18,11 @@ pub enum ASTNode {
         return_type: Option<Type>,
         body: Vec<ASTNode>,
     },
+    MethodCall {
+        object: Box<ASTNode>,
+        method: String,
+        arguments: Vec<ASTNode>,
+    },
     FunctionCall {
         name: String,
         arguments: Vec<ASTNode>,
@@ -57,7 +62,7 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Result<ASTNode, String> {
-        match self.tokens.next() {
+        let mut node = match self.tokens.next() {
             Some(Token::LeftParen) => {
                 let expr = self.parse_expression()?;
 
@@ -68,21 +73,73 @@ impl Parser {
                     _ => Err("Unexpected end of input".to_string()),
                 }
             }
-            Some(Token::Identifier(ident)) => {
-                // check if its a function call
-                if let Some(Token::LeftParen) = self.tokens.peek() {
+            Some(Token::Identifier(ident)) => match self.tokens.peek() {
+                Some(Token::LeftParen) => {
                     self.tokens.next();
                     self.parse_function_call(ident)
-                } else {
-                    Ok(ASTNode::Identifier(ident))
                 }
-            }
+                _ => Ok(ASTNode::Identifier(ident)),
+            },
             Some(Token::Number(num)) => Ok(ASTNode::NumberLiteral(num)),
             Some(Token::String(str)) => Ok(ASTNode::StringLiteral(str)),
             Some(Token::Boolean(bool)) => Ok(ASTNode::BooleanLiteral(bool)),
             Some(token) => Err(format!("Unexpected token: {:?}", token)),
             _ => Err("Unexpected end of input".to_string()),
+        };
+
+        // check for method call
+        while let Some(Token::Period) = self.tokens.peek() {
+            // consume the period
+            self.tokens.next();
+
+            // parse the method name
+            let method_name = match self.tokens.next() {
+                Some(Token::Identifier(name)) => name,
+                Some(token) => return Err(format!("Expected method name, found {:?}", token)),
+                _ => return Err("Unexpected end of input".to_string()),
+            };
+
+            // check for opening parenthesis
+            match self.tokens.next() {
+                Some(Token::LeftParen) => (),
+                Some(token) => return Err(format!("Expected '(', found {:?}", token)),
+                _ => return Err("Unexpected end of input".to_string()),
+            };
+
+            // parse arguments
+            let mut args = Vec::new();
+
+            // handle no arguments
+            if let Some(Token::RightParen) = self.tokens.peek() {
+                // consume the right parenthesis
+                self.tokens.next();
+            } else {
+                // parse first argument
+                args.push(self.parse_expression()?);
+
+                // handle remaining arguments
+                while let Some(Token::Comma) = self.tokens.peek() {
+                    // consume the comma
+                    self.tokens.next();
+                    args.push(self.parse_expression()?);
+                }
+
+                // check for closing parenthesis
+                match self.tokens.next() {
+                    Some(Token::RightParen) => (),
+                    Some(token) => return Err(format!("Expected ')', found {:?}", token)),
+                    _ => return Err("Unexpected end of input".to_string()),
+                }
+            }
+
+            node = Ok(ASTNode::MethodCall {
+                object: Box::new(node?),
+                method: method_name,
+                arguments: args,
+            });
         }
+
+        node
     }
 
     fn parse_parameter(&mut self) -> Result<Parameter, String> {
