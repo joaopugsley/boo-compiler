@@ -22,6 +22,11 @@ pub enum ASTNode {
         name: String,
         arguments: Vec<ASTNode>,
     },
+    IfStatement {
+        condition: Box<ASTNode>,
+        then_body: Vec<ASTNode>,
+        else_body: Option<Vec<ASTNode>>,
+    },
     VariableDeclaration {
         var_type: Type,
         name: String,
@@ -89,7 +94,7 @@ impl Parser {
         match (self.tokens.next(), self.tokens.next()) {
             (Some(Token::Type(param_type)), Some(Token::Identifier(name))) => {
                 let mut optional = false;
-                if let Some(Token::Star) = self.tokens.peek() {
+                if let Some(Token::Operator(Operator::Multiply)) = self.tokens.peek() {
                     self.tokens.next();
                     optional = true;
                 }
@@ -132,14 +137,33 @@ impl Parser {
     }
 
     fn parse_function_body(&mut self) -> Result<Vec<ASTNode>, String> {
-        let mut body = Vec::new();
+        let mut statements = Vec::new();
+
         while let Some(token) = self.tokens.peek() {
             if matches!(token, Token::RightBrace) {
                 break;
             }
-            body.push(self.parse_statement()?);
+            statements.push(self.parse_statement()?);
         }
-        Ok(body)
+
+        Ok(statements)
+    }
+
+    fn parse_block(&mut self) -> Result<Vec<ASTNode>, String> {
+        let mut statements = Vec::new();
+
+        while let Some(token) = self.tokens.peek() {
+            if matches!(token, Token::RightBrace) {
+                break;
+            }
+            statements.push(self.parse_statement()?);
+        }
+
+        match self.tokens.next() {
+            Some(Token::RightBrace) => Ok(statements),
+            Some(token) => return Err(format!("Expected '}}', found {:?}", token)),
+            _ => return Err("Unexpected end of input".to_string()),
+        }
     }
 
     fn parse_function_declaration(&mut self) -> Result<ASTNode, String> {
@@ -219,10 +243,56 @@ impl Parser {
         }
     }
 
+    fn parse_if_statement(&mut self) -> Result<ASTNode, String> {
+        // parse condition
+        match self.tokens.next() {
+            Some(Token::LeftParen) => (),
+            Some(token) => return Err(format!("Expected '(' after 'if', found {:?}", token)),
+            _ => return Err("Unexpected end of input".to_string()),
+        };
+
+        let condition = self.parse_expression()?;
+
+        match self.tokens.next() {
+            Some(Token::RightParen) => (),
+            Some(token) => return Err(format!("Expected ')', found {:?}", token)),
+            _ => return Err("Unexpected end of input".to_string()),
+        };
+
+        // parse then body
+        match self.tokens.next() {
+            Some(Token::LeftBrace) => (),
+            Some(token) => return Err(format!("Expected '{{', found {:?}", token)),
+            _ => return Err("Unexpected end of input".to_string()),
+        };
+
+        let then_body = self.parse_block()?;
+
+        let else_body = if let Some(Token::Keyword(Keyword::Else)) = self.tokens.peek() {
+            self.tokens.next(); // consume the keyword (else)
+
+            match self.tokens.next() {
+                Some(Token::LeftBrace) => (),
+                Some(token) => return Err(format!("Expected '{{', found {:?}", token)),
+                _ => return Err("Unexpected end of input".to_string()),
+            };
+
+            Some(self.parse_block()?)
+        } else {
+            None
+        };
+
+        Ok(ASTNode::IfStatement {
+            condition: Box::new(condition),
+            then_body,
+            else_body,
+        })
+    }
+
     fn parse_variable_declaration(&mut self, var_type: Type) -> Result<ASTNode, String> {
         match self.tokens.next() {
             Some(Token::Identifier(name)) => match self.tokens.next() {
-                Some(Token::Equals) => {
+                Some(Token::Operator(Operator::AssignEquals)) => {
                     let value = self.parse_expression()?;
                     Ok(ASTNode::VariableDeclaration {
                         name,
@@ -243,6 +313,10 @@ impl Parser {
             Some(Token::Keyword(Keyword::Fun)) => {
                 self.tokens.next();
                 self.parse_function_declaration()
+            }
+            Some(Token::Keyword(Keyword::If)) => {
+                self.tokens.next();
+                self.parse_if_statement()
             }
             Some(Token::Type(t)) => {
                 let var_type = t.clone();

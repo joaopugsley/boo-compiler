@@ -66,6 +66,11 @@ impl TypeChecker {
                 body,
             } => self.check_function_declaration(name, parameters, return_type, body),
             ASTNode::FunctionCall { name, arguments } => self.check_function_call(name, arguments),
+            ASTNode::IfStatement {
+                condition,
+                then_body,
+                else_body,
+            } => self.check_if_statement(*condition, then_body, else_body),
             ASTNode::VariableDeclaration {
                 var_type,
                 name,
@@ -79,12 +84,48 @@ impl TypeChecker {
         }
     }
 
+    fn check_if_statement(
+        &mut self,
+        condition: ASTNode,
+        then_body: Vec<ASTNode>,
+        else_body: Option<Vec<ASTNode>>,
+    ) -> Result<Type, String> {
+        let condition_type = self.check_node(condition)?;
+
+        if condition_type != Type::Bool {
+            return Err(format!(
+                "Type mismatch: expected 'Bool', found '{:?}'",
+                condition_type
+            ));
+        }
+
+        for node in then_body {
+            self.check_node(node)?;
+        }
+
+        if let Some(else_body) = else_body {
+            for node in else_body {
+                self.check_node(node)?;
+            }
+        }
+
+        Ok(Type::Void)
+    }
+
     fn check_binary_operation(
         &mut self,
         left: ASTNode,
         op: Operator,
         right: ASTNode,
     ) -> Result<Type, String> {
+        if let ASTNode::Identifier(name) = &left {
+            self.verify_optional_parameter_usage(&name)?;
+        }
+
+        if let ASTNode::Identifier(name) = &right {
+            self.verify_optional_parameter_usage(&name)?;
+        }
+
         let left_type = self.check_node(left)?;
         let right_type = self.check_node(right)?;
 
@@ -106,7 +147,57 @@ impl TypeChecker {
 
                 Ok(Type::Num)
             }
+            Operator::Equals | Operator::NotEquals => {
+                if left_type != right_type {
+                    return Err(format!(
+                        "Type mismatch: expected '{:?}', found '{:?}'",
+                        left_type, right_type
+                    ));
+                }
+
+                Ok(Type::Bool)
+            }
+            Operator::GreaterThan
+            | Operator::LessThan
+            | Operator::GreaterThanOrEqual
+            | Operator::LessThanOrEqual => {
+                if left_type != Type::Num || right_type != Type::Num {
+                    return Err(format!(
+                        "Type mismatch: expected 'Num' and 'Num', found '{:?}' and '{:?}'",
+                        left_type, right_type
+                    ));
+                }
+
+                Ok(Type::Bool)
+            }
+            Operator::AssignEquals => {
+                if left_type != right_type {
+                    return Err(format!(
+                        "Type mismatch: expected '{:?}', found '{:?}'",
+                        left_type, right_type
+                    ));
+                }
+
+                Ok(Type::Void)
+            }
+            _ => unimplemented!("Unimplemented node type"),
         }
+    }
+
+    fn verify_optional_parameter_usage(&self, name: &str) -> Result<(), String> {
+        for signature in self.functions.values() {
+            if let Some(param) = signature
+                .parameters
+                .iter()
+                .find(|p| p.name == name && p.optional)
+            {
+                return Err(format!(
+                    "Warning: Operation uses optional parameter '{}' without null check",
+                    param.name
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn check_variable_declaration(

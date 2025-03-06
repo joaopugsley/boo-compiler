@@ -1,6 +1,6 @@
 use std::str::Chars;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Identifier(String),
     Number(f64),
@@ -9,14 +9,12 @@ pub enum Token {
     Operator(Operator),
     Keyword(Keyword),
     Type(Type),
-    Star,
     LeftParen,
     RightParen,
     LeftBrace,
     RightBrace,
     Arrow,
     Comma,
-    Equals,
 }
 
 #[derive(Clone, Debug, PartialEq, Copy)]
@@ -27,18 +25,36 @@ pub enum Type {
     Void,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Keyword {
     Fun,
     Return,
+    If,
+    Else,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
-    Plus,
-    Minus,
-    Multiply,
-    Divide,
+    // math
+    Plus,     // +
+    Minus,    // -
+    Multiply, // *
+    Divide,   // /
+
+    // assignment
+    AssignEquals, // =
+    // AddAssign,    // +=
+    // SubAssign, // -=
+    // MulAssign, // *=
+    // DivAssign, // /=
+
+    // comparison
+    Equals,             // ==
+    NotEquals,          // !=
+    GreaterThan,        // >
+    LessThan,           // <
+    GreaterThanOrEqual, // >=
+    LessThanOrEqual,    // <=
 }
 
 pub struct Lexer<'a> {
@@ -132,6 +148,8 @@ impl<'a> Lexer<'a> {
             // keywords
             "fun" => Token::Keyword(Keyword::Fun),
             "return" => Token::Keyword(Keyword::Return),
+            "if" => Token::Keyword(Keyword::If),
+            "else" => Token::Keyword(Keyword::Else),
 
             // types
             "str" => Token::Type(Type::Str),
@@ -150,24 +168,53 @@ impl<'a> Lexer<'a> {
     }
 
     fn tokenize_operator(&mut self) -> Result<Token, String> {
-        let op_char = self.peek().ok_or("Expected operator, found end of input")?;
+        let current = self.peek().ok_or("Expected operator, found end of input")?;
 
-        let token = match op_char {
-            '+' => Token::Operator(Operator::Plus),
-            '-' => Token::Operator(Operator::Minus),
-            '*' => Token::Operator(Operator::Multiply),
-            '/' => Token::Operator(Operator::Divide),
-            '>' => Token::Arrow,
-            '=' => Token::Equals,
-            '(' => Token::LeftParen,
-            ')' => Token::RightParen,
-            '{' => Token::LeftBrace,
-            '}' => Token::RightBrace,
-            ',' => Token::Comma,
-            c => return Err(format!("Unexpected operator: {}", c)),
+        // consume the operator
+        self.next();
+
+        let next = self.peek();
+
+        let token = match (current, next) {
+            // two char operators
+            ('=', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::Equals)
+            }
+            ('!', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::NotEquals)
+            }
+            ('-', Some('>')) => {
+                self.next(); // consume the second operator
+                Token::Arrow
+            }
+            ('>', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::GreaterThanOrEqual)
+            }
+            ('<', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::LessThanOrEqual)
+            }
+
+            // single char operators
+            ('+', _) => Token::Operator(Operator::Plus),
+            ('-', _) => Token::Operator(Operator::Minus),
+            ('*', _) => Token::Operator(Operator::Multiply),
+            ('/', _) => Token::Operator(Operator::Divide),
+            ('=', _) => Token::Operator(Operator::AssignEquals),
+            ('>', _) => Token::Operator(Operator::GreaterThan),
+            ('<', _) => Token::Operator(Operator::LessThan),
+            ('(', _) => Token::LeftParen,
+            (')', _) => Token::RightParen,
+            ('{', _) => Token::LeftBrace,
+            ('}', _) => Token::RightBrace,
+            (',', _) => Token::Comma,
+
+            c => return Err(format!("Unexpected operator: {:?}", c)),
         };
 
-        self.next();
         Ok(token)
     }
 
@@ -207,11 +254,9 @@ impl<'a> Lexer<'a> {
                         _ => Token::Operator(Operator::Divide),
                     }
                 }
-                '*' => {
-                    self.next();
-                    Token::Star
+                '+' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' => {
+                    self.tokenize_operator()?
                 }
-                '+' | '>' | '=' | '(' | ')' | '{' | '}' | ',' => self.tokenize_operator()?,
                 ';' => {
                     self.next();
                     continue;
