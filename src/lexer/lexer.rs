@@ -40,6 +40,8 @@ pub enum Operator {
     Minus,    // -
     Multiply, // *
     Divide,   // /
+    Power,    // **
+    Modulo,   // %
 
     // assignment
     AssignEquals, // =
@@ -47,6 +49,8 @@ pub enum Operator {
     SubAssign,    // -=
     MulAssign,    // *=
     DivAssign,    // /=
+    PowAssign,    // **=
+    ModAssign,    // %=
 
     // comparison
     Equals,             // ==
@@ -209,12 +213,28 @@ impl<'a> Lexer<'a> {
                 self.next(); // consume the second operator
                 Token::Operator(Operator::MulAssign)
             }
+            ('*', Some('*')) => {
+                self.next(); // consume the second operator
+
+                if let Some('=') = self.peek() {
+                    // consume the '='
+                    self.next();
+                    Token::Operator(Operator::PowAssign)
+                } else {
+                    Token::Operator(Operator::Power)
+                }
+            }
+            ('%', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::ModAssign)
+            }
 
             // single char operators
             ('+', _) => Token::Operator(Operator::Plus),
             ('-', _) => Token::Operator(Operator::Minus),
             ('*', _) => Token::Operator(Operator::Multiply),
             ('/', _) => Token::Operator(Operator::Divide),
+            ('%', _) => Token::Operator(Operator::Modulo),
             ('=', _) => Token::Operator(Operator::AssignEquals),
             ('>', _) => Token::Operator(Operator::GreaterThan),
             ('<', _) => Token::Operator(Operator::LessThan),
@@ -271,7 +291,7 @@ impl<'a> Lexer<'a> {
                         _ => Token::Operator(Operator::Divide),
                     }
                 }
-                '+' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' => {
+                '+' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%' => {
                     self.tokenize_operator()?
                 }
                 ';' => {

@@ -176,6 +176,20 @@ impl VM {
                         return Err("Type mismatch in division".to_string());
                     }
                 }
+                Instruction::Power => {
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+                    if let (Value::Number(a), Value::Number(b)) = (left, right) {
+                        self.push(Value::Number(a.powf(b)));
+                    }
+                }
+                Instruction::Modulo => {
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+                    if let (Value::Number(a), Value::Number(b)) = (left, right) {
+                        self.push(Value::Number(a % b));
+                    }
+                }
 
                 // comparison
                 Instruction::Equals => {

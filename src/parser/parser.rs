@@ -339,6 +339,8 @@ impl Parser {
                 Operator::SubAssign,
                 Operator::MulAssign,
                 Operator::DivAssign,
+                Operator::PowAssign,
+                Operator::ModAssign,
             ],
             // comparison operators (next lowest precedence)
             vec![
@@ -352,7 +354,12 @@ impl Parser {
             // add and subtract operators
             vec![Operator::Plus, Operator::Minus],
             // multiplication and division operators (highest precedence)
-            vec![Operator::Multiply, Operator::Divide],
+            vec![
+                Operator::Multiply,
+                Operator::Divide,
+                Operator::Power,
+                Operator::Modulo,
+            ],
         ];
 
         // highest precedence (primary expressions)

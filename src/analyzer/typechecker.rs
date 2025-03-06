@@ -130,7 +130,12 @@ impl TypeChecker {
         let right_type = self.check_node(right)?;
 
         match op {
-            Operator::Plus | Operator::Minus | Operator::Multiply | Operator::Divide => {
+            Operator::Plus
+            | Operator::Minus
+            | Operator::Multiply
+            | Operator::Divide
+            | Operator::Power
+            | Operator::Modulo => {
                 if left_type != Type::Num {
                     return Err(format!(
                         "Type mismatch: expected 'Num', found '{:?}'",
@@ -164,7 +169,9 @@ impl TypeChecker {
             | Operator::AddAssign
             | Operator::DivAssign
             | Operator::MulAssign
-            | Operator::SubAssign => {
+            | Operator::SubAssign
+            | Operator::ModAssign
+            | Operator::PowAssign => {
                 if left_type != Type::Num || right_type != Type::Num {
                     return Err(format!(
                         "Type mismatch: expected 'Num' and 'Num', found '{:?}' and '{:?}'",

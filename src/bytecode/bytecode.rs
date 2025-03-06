@@ -24,6 +24,8 @@ pub enum Instruction {
     Subtract,
     Multiply,
     Divide,
+    Power,
+    Modulo,
 
     // comparison
     Equals,
@@ -236,6 +238,42 @@ impl Bytecode {
                         return Err("Left side of assignment must be an identifier".to_string());
                     }
                 }
+                Operator::PowAssign => {
+                    if let ASTNode::Identifier(name) = *left {
+                        // load the current value
+                        self.instructions
+                            .push(Instruction::LoadVariable(name.clone()));
+                        // load the right side value
+                        self.compile_node(*right)?;
+                        // multiply them
+                        self.instructions.push(Instruction::Power);
+                        // store the result
+                        self.instructions
+                            .push(Instruction::StoreVariable(name.clone()));
+                        // load the variable
+                        self.instructions.push(Instruction::LoadVariable(name));
+                    } else {
+                        return Err("Left side of assignment must be an identifier".to_string());
+                    }
+                }
+                Operator::ModAssign => {
+                    if let ASTNode::Identifier(name) = *left {
+                        // load the current value
+                        self.instructions
+                            .push(Instruction::LoadVariable(name.clone()));
+                        // load the right side value
+                        self.compile_node(*right)?;
+                        // multiply them
+                        self.instructions.push(Instruction::Modulo);
+                        // store the result
+                        self.instructions
+                            .push(Instruction::StoreVariable(name.clone()));
+                        // load the variable
+                        self.instructions.push(Instruction::LoadVariable(name));
+                    } else {
+                        return Err("Left side of assignment must be an identifier".to_string());
+                    }
+                }
                 _ => {
                     self.compile_node(*left)?;
                     self.compile_node(*right)?;
@@ -245,6 +283,8 @@ impl Bytecode {
                         Operator::Minus => self.instructions.push(Instruction::Subtract),
                         Operator::Multiply => self.instructions.push(Instruction::Multiply),
                         Operator::Divide => self.instructions.push(Instruction::Divide),
+                        Operator::Power => self.instructions.push(Instruction::Power),
+                        Operator::Modulo => self.instructions.push(Instruction::Modulo),
                         Operator::Equals => self.instructions.push(Instruction::Equals),
                         Operator::NotEquals => self.instructions.push(Instruction::NotEquals),
                         Operator::GreaterThan => self.instructions.push(Instruction::GreaterThan),
