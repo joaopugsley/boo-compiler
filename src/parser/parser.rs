@@ -85,21 +85,6 @@ impl Parser {
         }
     }
 
-    fn parse_binary_operation(&mut self) -> Result<ASTNode, String> {
-        let mut result = self.parse_primary()?;
-        while let Some(Token::Operator(op)) = self.tokens.peek() {
-            let operator = op.clone();
-            self.tokens.next();
-            let right = self.parse_primary()?;
-            result = ASTNode::BinaryOperation {
-                left: Box::new(result),
-                op: operator,
-                right: Box::new(right),
-            };
-        }
-        Ok(result)
-    }
-
     fn parse_parameter(&mut self) -> Result<Parameter, String> {
         match (self.tokens.next(), self.tokens.next()) {
             (Some(Token::Type(param_type)), Some(Token::Identifier(name))) => {
@@ -345,8 +330,68 @@ impl Parser {
         }
     }
 
+    fn parse_expression_with_precedence(&mut self, prec: usize) -> Result<ASTNode, String> {
+        let precedence_order = [
+            // assignment operators (lowest precedence)
+            vec![
+                Operator::AssignEquals,
+                Operator::AddAssign,
+                Operator::SubAssign,
+                Operator::MulAssign,
+                Operator::DivAssign,
+            ],
+            // comparison operators (next lowest precedence)
+            vec![
+                Operator::Equals,
+                Operator::NotEquals,
+                Operator::GreaterThan,
+                Operator::LessThan,
+                Operator::GreaterThanOrEqual,
+                Operator::LessThanOrEqual,
+            ],
+            // add and subtract operators
+            vec![Operator::Plus, Operator::Minus],
+            // multiplication and division operators (highest precedence)
+            vec![Operator::Multiply, Operator::Divide],
+        ];
+
+        // highest precedence (primary expressions)
+        if prec >= precedence_order.len() {
+            return self.parse_primary();
+        }
+
+        let mut left = if prec == precedence_order.len() - 1 {
+            self.parse_primary()?
+        } else {
+            self.parse_expression_with_precedence(prec + 1)?
+        };
+
+        while let Some(Token::Operator(op)) = self.tokens.peek() {
+            if precedence_order[prec].contains(op) {
+                let op = op.clone();
+                self.tokens.next();
+
+                let right = if prec == 0 {
+                    self.parse_expression_with_precedence(prec)?
+                } else {
+                    self.parse_expression_with_precedence(prec + 1)?
+                };
+
+                left = ASTNode::BinaryOperation {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                };
+            } else {
+                break;
+            }
+        }
+
+        Ok(left)
+    }
+
     fn parse_expression(&mut self) -> Result<ASTNode, String> {
-        self.parse_binary_operation()
+        self.parse_expression_with_precedence(0)
     }
 
     pub fn parse_program(&mut self) -> Result<ASTNode, String> {
