@@ -58,6 +58,16 @@ impl Parser {
 
     fn parse_primary(&mut self) -> Result<ASTNode, String> {
         match self.tokens.next() {
+            Some(Token::LeftParen) => {
+                let expr = self.parse_expression()?;
+
+                // make sure we have a closing parenthensis
+                match self.tokens.next() {
+                    Some(Token::RightParen) => Ok(expr),
+                    Some(token) => Err(format!("Expected ')', found {:?}", token)),
+                    _ => Err("Unexpected end of input".to_string()),
+                }
+            }
             Some(Token::Identifier(ident)) => {
                 // check if its a function call
                 if let Some(Token::LeftParen) = self.tokens.peek() {
