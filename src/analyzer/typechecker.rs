@@ -184,7 +184,6 @@ impl TypeChecker {
 
                 Ok(Type::Void)
             }
-            _ => unimplemented!("Unimplemented node type"),
         }
     }
 

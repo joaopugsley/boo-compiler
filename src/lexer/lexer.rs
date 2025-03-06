@@ -209,10 +209,6 @@ impl<'a> Lexer<'a> {
                 self.next(); // consume the second operator
                 Token::Operator(Operator::MulAssign)
             }
-            ('/', Some('=')) => {
-                self.next(); // consume the second operator
-                Token::Operator(Operator::DivAssign)
-            }
 
             // single char operators
             ('+', _) => Token::Operator(Operator::Plus),
@@ -266,6 +262,11 @@ impl<'a> Lexer<'a> {
                                 self.next();
                             }
                             continue;
+                        }
+                        Some('=') => {
+                            // consume the '='
+                            self.next();
+                            Token::Operator(Operator::DivAssign)
                         }
                         _ => Token::Operator(Operator::Divide),
                     }

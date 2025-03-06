@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::{bytecode::Instruction, lexer::Type, parser::Parameter};
+use crate::{bytecode::Instruction, parser::Parameter};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -13,7 +13,6 @@ pub enum Value {
 #[derive(Clone, Debug)]
 struct Function {
     parameters: Vec<Parameter>,
-    return_type: Option<Type>,
     address: usize,
 }
 
@@ -267,7 +266,7 @@ impl VM {
                 }
 
                 // functions
-                Instruction::DeclareFunction(name, parameters, return_type) => {
+                Instruction::DeclareFunction(name, parameters, _return_type) => {
                     let mut body_address = self.pc + 1;
                     if body_address < self.instructions.len() {
                         if let Instruction::Jump(_) = self.instructions[body_address] {
@@ -279,7 +278,6 @@ impl VM {
                         name,
                         Function {
                             parameters,
-                            return_type,
                             address: body_address,
                         },
                     );

@@ -19,6 +19,8 @@ fn main() -> Result<(), String> {
         .tokenize()
         .map_err(|e| format!("Lexer error: {}", e))?;
 
+    println!("Tokens: {:#?}", tokens);
+
     let mut parser = Parser::new(tokens);
     let ast = parser
         .parse_program()
