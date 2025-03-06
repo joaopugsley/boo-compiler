@@ -164,6 +164,78 @@ impl Bytecode {
                         return Err("Left side of assignment must be an identifier".to_string());
                     }
                 }
+                Operator::AddAssign => {
+                    if let ASTNode::Identifier(name) = *left {
+                        // load the current value
+                        self.instructions
+                            .push(Instruction::LoadVariable(name.clone()));
+                        // load the right side value
+                        self.compile_node(*right)?;
+                        // add them
+                        self.instructions.push(Instruction::Add);
+                        // store the result
+                        self.instructions
+                            .push(Instruction::StoreVariable(name.clone()));
+                        // load the variable
+                        self.instructions.push(Instruction::LoadVariable(name));
+                    } else {
+                        return Err("Left side of assignment must be an identifier".to_string());
+                    }
+                }
+                Operator::SubAssign => {
+                    if let ASTNode::Identifier(name) = *left {
+                        // load the current value
+                        self.instructions
+                            .push(Instruction::LoadVariable(name.clone()));
+                        // load the right side value
+                        self.compile_node(*right)?;
+                        // subtract them
+                        self.instructions.push(Instruction::Subtract);
+                        // store the result
+                        self.instructions
+                            .push(Instruction::StoreVariable(name.clone()));
+                        // load the variable
+                        self.instructions.push(Instruction::LoadVariable(name));
+                    } else {
+                        return Err("Left side of assignment must be an identifier".to_string());
+                    }
+                }
+                Operator::MulAssign => {
+                    if let ASTNode::Identifier(name) = *left {
+                        // load the current value
+                        self.instructions
+                            .push(Instruction::LoadVariable(name.clone()));
+                        // load the right side value
+                        self.compile_node(*right)?;
+                        // multiply them
+                        self.instructions.push(Instruction::Multiply);
+                        // store the result
+                        self.instructions
+                            .push(Instruction::StoreVariable(name.clone()));
+                        // load the variable
+                        self.instructions.push(Instruction::LoadVariable(name));
+                    } else {
+                        return Err("Left side of assignment must be an identifier".to_string());
+                    }
+                }
+                Operator::DivAssign => {
+                    if let ASTNode::Identifier(name) = *left {
+                        // load the current value
+                        self.instructions
+                            .push(Instruction::LoadVariable(name.clone()));
+                        // load the right side value
+                        self.compile_node(*right)?;
+                        // divide them
+                        self.instructions.push(Instruction::Divide);
+                        // store the result
+                        self.instructions
+                            .push(Instruction::StoreVariable(name.clone()));
+                        // load the variable
+                        self.instructions.push(Instruction::LoadVariable(name));
+                    } else {
+                        return Err("Left side of assignment must be an identifier".to_string());
+                    }
+                }
                 _ => {
                     self.compile_node(*left)?;
                     self.compile_node(*right)?;

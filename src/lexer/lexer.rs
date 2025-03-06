@@ -43,10 +43,10 @@ pub enum Operator {
 
     // assignment
     AssignEquals, // =
-    // AddAssign,    // +=
-    // SubAssign, // -=
-    // MulAssign, // *=
-    // DivAssign, // /=
+    AddAssign,    // +=
+    SubAssign,    // -=
+    MulAssign,    // *=
+    DivAssign,    // /=
 
     // comparison
     Equals,             // ==
@@ -196,6 +196,22 @@ impl<'a> Lexer<'a> {
             ('<', Some('=')) => {
                 self.next(); // consume the second operator
                 Token::Operator(Operator::LessThanOrEqual)
+            }
+            ('+', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::AddAssign)
+            }
+            ('-', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::SubAssign)
+            }
+            ('*', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::MulAssign)
+            }
+            ('/', Some('=')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::DivAssign)
             }
 
             // single char operators

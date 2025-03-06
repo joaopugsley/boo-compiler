@@ -160,7 +160,11 @@ impl TypeChecker {
             Operator::GreaterThan
             | Operator::LessThan
             | Operator::GreaterThanOrEqual
-            | Operator::LessThanOrEqual => {
+            | Operator::LessThanOrEqual
+            | Operator::AddAssign
+            | Operator::DivAssign
+            | Operator::MulAssign
+            | Operator::SubAssign => {
                 if left_type != Type::Num || right_type != Type::Num {
                     return Err(format!(
                         "Type mismatch: expected 'Num' and 'Num', found '{:?}' and '{:?}'",
