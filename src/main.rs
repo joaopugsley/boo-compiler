@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, time::Instant};
 
 use bytecode::Bytecode;
 use lexer::Lexer;
@@ -22,7 +22,7 @@ fn main() -> Result<(), String> {
         return Err(format!("Lexer error: {}", tokens.err().unwrap()));
     }
 
-    // println!("Tokens: {:#?}", tokens);
+    println!("Tokens: {:#?}", tokens);
 
     let mut parser = Parser::new(tokens.unwrap());
     let ast = parser.parse_program();
@@ -33,12 +33,12 @@ fn main() -> Result<(), String> {
 
     // println!("AST: {:#?}", ast);
 
-    // let mut typechecker = analyzer::TypeChecker::new(ast.clone().unwrap());
-    // let result = typechecker.check_program();
+    let mut typechecker = analyzer::TypeChecker::new(ast.clone().unwrap());
+    let result = typechecker.check_program();
 
-    // if result.is_err() {
-    //     return Err(format!("Typechecker error: {}", result.err().unwrap()));
-    // }
+    if result.is_err() {
+        return Err(format!("Typechecker error: {}", result.err().unwrap()));
+    }
 
     let mut bytecode_compiler = Bytecode::new(ast.unwrap());
     let bytecode = bytecode_compiler.compile();
@@ -53,11 +53,18 @@ fn main() -> Result<(), String> {
     // println!("Bytecode: {:#?}", bytecode);
 
     let mut vm = VM::new(bytecode.unwrap());
+
+    let start = Instant::now();
+
     let result = vm.run();
+
+    let duration = start.elapsed();
 
     if result.is_err() {
         println!("VM error: {}", result.err().unwrap());
     }
+
+    println!("Execution time: {:?}", duration);
 
     Ok(())
 }

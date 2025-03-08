@@ -3,17 +3,25 @@ use std::collections::HashMap;
 use crate::{
     lexer::{Operator, Type},
     parser::{ASTNode, Parameter},
+    stdlib::stdlib::register_stdlib_types,
 };
 
 pub struct FunctionSignature {
     parameters: Vec<Parameter>,
     return_type: Option<Type>,
+    is_native: bool,
 }
 
 pub struct TypeChecker {
     program: ASTNode,
     variables: Vec<HashMap<String, Type>>,
     functions: HashMap<String, FunctionSignature>,
+
+    // stdlib
+    native_function_types: HashMap<String, Type>,
+    string_method_types: HashMap<String, Type>,
+    number_method_types: HashMap<String, Type>,
+    boolean_method_types: HashMap<String, Type>,
 }
 
 impl TypeChecker {
@@ -22,25 +30,38 @@ impl TypeChecker {
             program,
             variables: Vec::new(),
             functions: HashMap::new(),
+
+            // stdlib
+            native_function_types: HashMap::new(),
+            string_method_types: HashMap::new(),
+            number_method_types: HashMap::new(),
+            boolean_method_types: HashMap::new(),
         };
 
         // register stdlib
-        checker.register_stdlib();
+        register_stdlib_types(&mut checker);
+
         checker
     }
 
-    fn register_stdlib(&mut self) {
-        self.functions.insert(
-            "print".to_string(),
-            FunctionSignature {
-                parameters: vec![Parameter {
-                    name: "value".to_string(),
-                    param_type: Type::Str,
-                    optional: false,
-                }],
-                return_type: Some(Type::Void),
-            },
-        );
+    pub fn register_native_function_type(&mut self, name: &str, return_type: Type) {
+        self.native_function_types
+            .insert(name.to_string(), return_type);
+    }
+
+    pub fn register_string_method_type(&mut self, name: &str, return_type: Type) {
+        self.string_method_types
+            .insert(name.to_string(), return_type);
+    }
+
+    pub fn register_number_method_type(&mut self, name: &str, return_type: Type) {
+        self.number_method_types
+            .insert(name.to_string(), return_type);
+    }
+
+    pub fn register_boolean_method_type(&mut self, name: &str, return_type: Type) {
+        self.boolean_method_types
+            .insert(name.to_string(), return_type);
     }
 
     fn enter_scope(&mut self) {
@@ -87,6 +108,11 @@ impl TypeChecker {
                 body,
             } => self.check_function_declaration(name, parameters, return_type, body),
             ASTNode::FunctionCall { name, arguments } => self.check_function_call(name, arguments),
+            ASTNode::MethodCall {
+                object,
+                method,
+                arguments,
+            } => self.check_method_call(*object, method, arguments),
             ASTNode::IfStatement {
                 condition,
                 then_body,
@@ -172,6 +198,13 @@ impl TypeChecker {
                 }
 
                 Ok(Type::Num)
+            }
+            Operator::Concat => {
+                if left_type == Type::Void || right_type == Type::Void {
+                    return Err("Cannot concatenate void".to_string());
+                }
+
+                Ok(Type::Str)
             }
             Operator::Equals | Operator::NotEquals => {
                 if left_type != right_type {
@@ -287,6 +320,7 @@ impl TypeChecker {
             FunctionSignature {
                 parameters,
                 return_type,
+                is_native: false,
             },
         );
 
@@ -324,10 +358,29 @@ impl TypeChecker {
         name: String,
         arguments: Vec<ASTNode>,
     ) -> Result<Type, String> {
+        // first check for native functions
+        if self.native_function_types.contains_key(&name) {
+            for arg in &arguments {
+                let arg_type = self.check_node(arg.clone())?;
+                if arg_type == Type::Void {
+                    return Err(format!(
+                        "Native function '{}' requires a non-void argument",
+                        name
+                    ));
+                }
+            }
+
+            return match self.native_function_types.get(&name) {
+                Some(return_type) => Ok(*return_type),
+                None => Ok(Type::Void),
+            };
+        }
+
         let signature = match self.functions.get(&name) {
             Some(signature) => FunctionSignature {
                 parameters: signature.parameters.clone(),
                 return_type: signature.return_type.clone(),
+                is_native: signature.is_native,
             },
             _ => return Err(format!("Unknown function '{}'", name)),
         };
@@ -338,6 +391,7 @@ impl TypeChecker {
             .iter()
             .filter(|p| p.optional == false)
             .count();
+
         if arguments.len() < required_parameters_count {
             return Err(format!(
                 "Function '{}' expects at least {} arguments, got {}",
@@ -360,5 +414,56 @@ impl TypeChecker {
         }
 
         Ok(signature.return_type.clone().unwrap_or(Type::Void))
+    }
+
+    fn check_method_call(
+        &mut self,
+        object: ASTNode,
+        method_name: String,
+        arguments: Vec<ASTNode>,
+    ) -> Result<Type, String> {
+        let object_type = self.check_node(object)?;
+
+        // check if the method exists for this type
+        let method_exists = match object_type {
+            Type::Str => self.string_method_types.contains_key(&method_name),
+            Type::Num => self.number_method_types.contains_key(&method_name),
+            Type::Bool => self.boolean_method_types.contains_key(&method_name),
+            _ => false,
+        };
+
+        if !method_exists {
+            return Err(format!(
+                "Method '{}' does not exist for type '{:?}'",
+                method_name, object_type
+            ));
+        }
+
+        // check arguments
+        for arg in arguments {
+            let arg_type = self.check_node(arg.clone())?;
+            if arg_type == Type::Void {
+                return Err(format!(
+                    "Method '{}' requires a non-void argument",
+                    method_name
+                ));
+            }
+        }
+
+        match object_type {
+            Type::Str => match self.string_method_types.get(&method_name) {
+                Some(return_type) => Ok(*return_type),
+                None => Ok(Type::Void),
+            },
+            Type::Num => match self.number_method_types.get(&method_name) {
+                Some(return_type) => Ok(*return_type),
+                None => Ok(Type::Void),
+            },
+            Type::Bool => match self.boolean_method_types.get(&method_name) {
+                Some(return_type) => Ok(*return_type),
+                None => Ok(Type::Void),
+            },
+            _ => Ok(Type::Void),
+        }
     }
 }

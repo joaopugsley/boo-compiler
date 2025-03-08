@@ -24,6 +24,7 @@ struct Function {
 struct CallFrame {
     return_address: usize,
     variables: HashMap<String, Value>,
+    scope_index: usize,
 }
 
 pub struct VM {
@@ -85,23 +86,34 @@ impl VM {
         }
     }
 
+    #[inline]
     fn current_scope(&mut self) -> &mut HashMap<String, Value> {
         self.scopes.last_mut().unwrap()
     }
 
+    #[inline]
     fn push(&mut self, value: Value) {
         self.debug_print(format!("Pushing value: {:?}", value));
         self.stack.push(value);
     }
 
+    #[inline]
     fn pop(&mut self) -> Result<Value, String> {
         self.stack
             .pop()
             .ok_or_else(|| "Stack underflow".to_string())
     }
 
+    #[inline]
     fn get_variable(&mut self, name: &str) -> Result<Value, String> {
-        // search scopes from top? to bottom? (like javascript)
+        // fast path -> check the topmost scope first (most common case)
+        if let Some(scope) = self.scopes.last() {
+            if let Some(value) = scope.get(name) {
+                return Ok(value.clone());
+            }
+        }
+
+        // search other scopes from top? to bottom? (like javascript)
         for scope in self.scopes.iter().rev() {
             if let Some(value) = scope.get(name) {
                 return Ok(value.clone());
@@ -230,6 +242,51 @@ impl VM {
                     let left = self.pop()?;
                     if let (Value::Number(a), Value::Number(b)) = (left, right) {
                         self.push(Value::Number(a % b));
+                    }
+                }
+
+                // string operations
+                Instruction::Concat => {
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+
+                    match (left, right) {
+                        (Value::Void, _) | (_, Value::Void) => {
+                            return Err("Cannot concatenate void".to_string());
+                        }
+                        (Value::String(mut a), Value::String(b)) => {
+                            a.reserve(b.len());
+                            a.push_str(&b);
+                            self.push(Value::String(a));
+                        }
+                        (Value::String(mut a), b) => {
+                            let b_str = match b {
+                                Value::String(s) => s,
+                                Value::Boolean(b) => b.to_string(),
+                                Value::Number(n) => n.to_string(),
+                                _ => {
+                                    return Err(format!("Cannot concatenate {:?} to string", b));
+                                }
+                            };
+                            a.push_str(&b_str);
+                            self.push(Value::String(a));
+                        }
+                        (a, Value::String(b)) => {
+                            let a_str = match a {
+                                Value::String(s) => s,
+                                Value::Boolean(b) => b.to_string(),
+                                Value::Number(n) => n.to_string(),
+                                _ => {
+                                    return Err(format!("Cannot concatenate {:?} to string", a));
+                                }
+                            };
+                            let mut result = a_str;
+                            result.push_str(&b);
+                            self.push(Value::String(result));
+                        }
+                        _ => {
+                            return Err("Type mismatch in concatenation".to_string());
+                        }
                     }
                 }
 
@@ -371,10 +428,15 @@ impl VM {
                         ));
                     }
 
+                    // create a new scope for the function
+                    self.scopes.push(HashMap::new());
+                    let scope_index = self.scopes.len() - 1;
+
                     // create new call frame
                     let mut cf = CallFrame {
                         return_address: self.pc + 1,
                         variables: HashMap::new(),
+                        scope_index,
                     };
 
                     // pop arguments in reverse (last arg first)
@@ -386,19 +448,17 @@ impl VM {
                     // bind args to function parameters
                     for (i, param) in function.parameters.iter().enumerate() {
                         if i < args.len() {
+                            self.scopes[scope_index].insert(param.name.clone(), args[i].clone());
                             cf.variables.insert(param.name.clone(), args[i].clone());
                         } else {
                             // optional parameters are set to void
+                            self.scopes[scope_index].insert(param.name.clone(), Value::Void);
                             cf.variables.insert(param.name.clone(), Value::Void);
                         }
                     }
 
                     // save call frame
                     self.call_stack.push(cf);
-
-                    // enter new scope for function
-                    self.scopes
-                        .push(self.call_stack.last().unwrap().variables.clone());
 
                     // jump to function body
                     self.pc = function.address;
@@ -461,14 +521,18 @@ impl VM {
 
                     // check if were in a function call frame
                     if let Some(cf) = self.call_stack.pop() {
-                        // exit function scope
-                        self.scopes.pop();
+                        // make sure we pop exactly the scope associated with this call frame
+                        while self.scopes.len() > cf.scope_index {
+                            self.scopes.pop();
+                        }
 
                         // jump back to caller
                         self.pc = cf.return_address;
 
                         // push return value
                         self.push(return_value);
+
+                        // continue execution
                         continue;
                     } else {
                         return Ok(Some(return_value));

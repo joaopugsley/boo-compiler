@@ -1,7 +1,12 @@
-use crate::vm::{Value, VM};
+use crate::{
+    analyzer::TypeChecker,
+    lexer::Type,
+    vm::{Value, VM},
+};
 
 pub type NativeFn = fn(&mut VM, Vec<Value>) -> Result<Value, String>;
 
+#[inline]
 pub fn print(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     if args.is_empty() {
         println!();
@@ -20,6 +25,7 @@ pub fn print(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     Ok(Value::Void)
 }
 
+#[inline]
 pub fn string_len(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("method: len() requires exactly one argument".to_string());
@@ -31,6 +37,7 @@ pub fn string_len(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     }
 }
 
+#[inline]
 pub fn to_string(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("method: to_string() requires exactly one argument".to_string());
@@ -57,4 +64,19 @@ pub fn register_stdlib(vm: &mut VM) {
 
     // register boolean methods
     vm.register_boolean_method("to_string", to_string);
+}
+
+pub fn register_stdlib_types(checker: &mut TypeChecker) {
+    // register native functions
+    checker.register_native_function_type("print", Type::Void);
+
+    // register string methods
+    checker.register_string_method_type("len", Type::Str);
+    checker.register_string_method_type("to_string", Type::Str);
+
+    // register number methods
+    checker.register_number_method_type("to_string", Type::Str);
+
+    // register boolean methods
+    checker.register_boolean_method_type("to_string", Type::Str);
 }

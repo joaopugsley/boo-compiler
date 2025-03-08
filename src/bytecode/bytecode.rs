@@ -27,6 +27,9 @@ pub enum Instruction {
     Power,
     Modulo,
 
+    // string operations
+    Concat,
+
     // comparison
     Equals,
     NotEquals,
@@ -136,15 +139,16 @@ impl Bytecode {
             } => {
                 let then_returns = !then_body.is_empty()
                     && self.is_return_statement(&then_body[then_body.len() - 1]);
-                let else_returns = match else_body {
-                    Some(else_body) => {
-                        !else_body.is_empty()
-                            && self.is_return_statement(&else_body[else_body.len() - 1])
-                    }
-                    None => false,
-                };
 
-                then_returns && else_returns
+                match else_body {
+                    Some(else_body) => {
+                        let else_returns = !else_body.is_empty()
+                            && self.is_return_statement(&else_body[else_body.len() - 1]);
+
+                        then_returns && else_returns
+                    }
+                    None => then_returns,
+                }
             }
             _ => false,
         }
@@ -300,6 +304,7 @@ impl Bytecode {
                         Operator::LessThanOrEqual => {
                             self.instructions.push(Instruction::LessThanOrEqual)
                         }
+                        Operator::Concat => self.instructions.push(Instruction::Concat),
                         _ => unreachable!("Unexpected binary operator: {:?}", op),
                     }
                 }

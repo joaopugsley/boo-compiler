@@ -409,15 +409,14 @@ impl Parser {
                 Operator::LessThanOrEqual,
             ],
             // add and subtract operators
-            vec![Operator::Plus, Operator::Minus],
+            vec![Operator::Plus, Operator::Minus, Operator::Concat],
             // multiplication and division operators (highest precedence)
-            vec![
-                Operator::Multiply,
-                Operator::Divide,
-                Operator::Power,
-                Operator::Modulo,
-            ],
+            vec![Operator::Multiply, Operator::Divide, Operator::Modulo],
+            // power operator (right associative)
+            vec![Operator::Power],
         ];
+
+        let right_associative_operators = vec![Operator::Power];
 
         // highest precedence (primary expressions)
         if prec >= precedence_order.len() {
@@ -436,6 +435,8 @@ impl Parser {
                 self.tokens.next();
 
                 let right = if prec == 0 {
+                    self.parse_expression_with_precedence(prec)?
+                } else if right_associative_operators.contains(&op) {
                     self.parse_expression_with_precedence(prec)?
                 } else {
                     self.parse_expression_with_precedence(prec + 1)?

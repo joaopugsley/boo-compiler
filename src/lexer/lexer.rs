@@ -44,6 +44,9 @@ pub enum Operator {
     Power,    // **
     Modulo,   // %
 
+    // string operations
+    Concat, // ><
+
     // assignment
     AssignEquals, // =
     AddAssign,    // +=
@@ -229,6 +232,10 @@ impl<'a> Lexer<'a> {
                 self.next(); // consume the second operator
                 Token::Operator(Operator::ModAssign)
             }
+            ('>', Some('<')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::Concat)
+            }
 
             // single char operators
             ('+', _) => Token::Operator(Operator::Plus),
@@ -292,7 +299,7 @@ impl<'a> Lexer<'a> {
                         _ => Token::Operator(Operator::Divide),
                     }
                 }
-                '+' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%' => {
+                '+' | '<' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%' => {
                     self.tokenize_operator()?
                 }
                 '.' => {
