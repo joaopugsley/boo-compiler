@@ -37,12 +37,13 @@ pub enum Keyword {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     // math
-    Plus,     // +
-    Minus,    // -
-    Multiply, // *
-    Divide,   // /
-    Power,    // **
-    Modulo,   // %
+    Plus,       // +
+    Minus,      // -
+    Multiply,   // *
+    Divide,     // /
+    Power,      // **
+    Modulo,     // %
+    UnaryMinus, // unary -
 
     // string operations
     Concat, // ><
@@ -104,16 +105,10 @@ impl<'a> Lexer<'a> {
     fn tokenize_number(&mut self) -> Result<Token, String> {
         let mut num_str = String::new();
 
-        // negative sign
-        if let Some('-') = self.peek() {
-            num_str.push('-');
-            self.next();
-        };
-
         // integer part
         let int_part = self.consume_while(|c| c.is_digit(10));
-        if int_part.is_empty() && num_str == "-" {
-            return Err("Expected digits after '-'".to_string());
+        if int_part.is_empty() {
+            return Err("Expected digits".to_string());
         }
         num_str.push_str(&int_part);
 
@@ -265,17 +260,6 @@ impl<'a> Lexer<'a> {
             let token = match c {
                 '0'..='9' => self.tokenize_number()?,
                 '"' => self.tokenize_string()?,
-                '-' => {
-                    if let Some(next_char) = self.input.clone().next() {
-                        if next_char.is_digit(10) {
-                            self.tokenize_number()?
-                        } else {
-                            self.tokenize_operator()?
-                        }
-                    } else {
-                        self.tokenize_operator()?
-                    }
-                }
                 'a'..='z' | 'A'..='Z' | '_' => self.tokenize_identifier()?,
                 '/' => {
                     // consume the '/'
@@ -299,7 +283,7 @@ impl<'a> Lexer<'a> {
                         _ => Token::Operator(Operator::Divide),
                     }
                 }
-                '+' | '<' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%' => {
+                '+' | '-' | '<' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%' => {
                     self.tokenize_operator()?
                 }
                 '.' => {

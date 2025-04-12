@@ -13,6 +13,7 @@ pub enum Instruction {
     PushBoolean(bool),
     PushVoid,
     Pop,
+    Negate,
 
     // variables
     LoadVariable(String),
@@ -159,6 +160,13 @@ impl Bytecode {
             ASTNode::Statement(expr) => {
                 self.compile_node(*expr)?;
                 self.instructions.push(Instruction::Pop);
+            }
+            ASTNode::UnaryOperation { op, operand } => {
+                self.compile_node(*operand)?;
+                match op {
+                    Operator::UnaryMinus => self.instructions.push(Instruction::Negate),
+                    _ => return Err(format!("Unsupported unary operator: {:?}", op)),
+                }
             }
             ASTNode::ReturnStatement(expr) => {
                 self.compile_node(*expr)?;

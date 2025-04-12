@@ -12,6 +12,10 @@ pub enum ASTNode {
         op: Operator,
         right: Box<ASTNode>,
     },
+    UnaryOperation {
+        op: Operator,
+        operand: Box<ASTNode>,
+    },
     FunctionDeclaration {
         name: String,
         parameters: Vec<Parameter>,
@@ -410,7 +414,7 @@ impl Parser {
             ],
             // add and subtract operators
             vec![Operator::Plus, Operator::Minus, Operator::Concat],
-            // multiplication and division operators (highest precedence)
+            // multiplication and division operators
             vec![Operator::Multiply, Operator::Divide, Operator::Modulo],
             // power operator (right associative)
             vec![Operator::Power],
@@ -420,14 +424,19 @@ impl Parser {
 
         // highest precedence (primary expressions)
         if prec >= precedence_order.len() {
+            // check for unary minus before parsing primary
+            if let Some(Token::Operator(Operator::Minus)) = self.tokens.peek() {
+                self.tokens.next(); // consume the minus
+                let operand = self.parse_expression_with_precedence(precedence_order.len() - 1)?;
+                return Ok(ASTNode::UnaryOperation {
+                    op: Operator::UnaryMinus,
+                    operand: Box::new(operand),
+                });
+            }
             return self.parse_primary();
         }
 
-        let mut left = if prec == precedence_order.len() - 1 {
-            self.parse_primary()?
-        } else {
-            self.parse_expression_with_precedence(prec + 1)?
-        };
+        let mut left = self.parse_expression_with_precedence(prec + 1)?;
 
         while let Some(Token::Operator(op)) = self.tokens.peek() {
             if precedence_order[prec].contains(op) {

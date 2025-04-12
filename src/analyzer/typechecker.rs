@@ -101,6 +101,21 @@ impl TypeChecker {
             ASTNode::BinaryOperation { left, op, right } => {
                 self.check_binary_operation(*left, op, *right)
             }
+            ASTNode::UnaryOperation { op, operand } => {
+                let operand_type = self.check_node(*operand)?;
+                match op {
+                    Operator::UnaryMinus => {
+                        if operand_type != Type::Num {
+                            return Err(format!(
+                                "Type mismatch: expected 'Num', found '{:?}'",
+                                operand_type
+                            ));
+                        }
+                        Ok(Type::Num)
+                    }
+                    _ => Err(format!("Unsupported unary operator: {:?}", op)),
+                }
+            }
             ASTNode::FunctionDeclaration {
                 name,
                 parameters,
@@ -245,6 +260,7 @@ impl TypeChecker {
 
                 Ok(Type::Void)
             }
+            Operator::UnaryMinus => unreachable!("UnaryMinus is not a binary operator"),
         }
     }
 

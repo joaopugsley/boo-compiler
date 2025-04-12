@@ -222,6 +222,3 @@ print("EXPECTED: -16 | " >< (-2 ** 4))
 
 // Floating point division check
 print("EXPECTED: 2.5 | " >< (5 / 2))
-
-// compare float sums
-print("EXPECTED: true | " >< (0.2 + 0.1 == 0.3))

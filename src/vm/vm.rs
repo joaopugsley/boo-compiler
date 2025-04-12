@@ -147,6 +147,13 @@ impl VM {
                 Instruction::Pop => {
                     self.pop()?;
                 }
+                Instruction::Negate => {
+                    let value = self.pop()?;
+                    match value {
+                        Value::Number(num) => self.push(Value::Number(-num)),
+                        _ => return Err("Cannot negate non-numeric value".to_string()),
+                    }
+                }
 
                 // variable operations
                 Instruction::LoadVariable(name) => {
