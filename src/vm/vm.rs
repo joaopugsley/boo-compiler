@@ -241,6 +241,9 @@ impl VM {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     if let (Value::Number(a), Value::Number(b)) = (left, right) {
+                        if b == 0.0 {
+                            return Err("Cannot calculate modulo by zero".to_string());
+                        }
                         self.push(Value::Number(a % b));
                     }
                 }

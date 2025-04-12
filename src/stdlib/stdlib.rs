@@ -6,7 +6,6 @@ use crate::{
 
 pub type NativeFn = fn(&mut VM, Vec<Value>) -> Result<Value, String>;
 
-#[inline]
 pub fn print(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     if args.is_empty() {
         println!();
@@ -25,7 +24,6 @@ pub fn print(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     Ok(Value::Void)
 }
 
-#[inline]
 pub fn string_len(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("method: len() requires exactly one argument".to_string());
@@ -37,7 +35,6 @@ pub fn string_len(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     }
 }
 
-#[inline]
 pub fn to_string(_vm: &mut VM, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("method: to_string() requires exactly one argument".to_string());
