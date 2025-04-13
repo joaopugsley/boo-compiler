@@ -1,4 +1,4 @@
-use std::{fs, time::Instant};
+use std::{env, fs, time::Instant};
 
 use bytecode::Bytecode;
 use lexer::Lexer;
@@ -13,7 +13,10 @@ mod stdlib;
 mod vm;
 
 fn main() -> Result<(), String> {
-    let contents = fs::read_to_string("test.boo").expect("Unable to read file to string");
+    let filename = env::args().nth(1).unwrap_or_else(|| "main.boo".to_string());
+
+    let contents = fs::read_to_string(&filename)
+        .map_err(|e| format!("Unable to read file {}: {}", filename, e))?;
 
     let mut lexer = Lexer::new(&contents);
     let tokens = lexer.tokenize();
@@ -22,7 +25,7 @@ fn main() -> Result<(), String> {
         return Err(format!("Lexer error: {}", tokens.err().unwrap()));
     }
 
-    println!("Tokens: {:#?}", tokens);
+    // println!("Tokens: {:#?}", tokens);
 
     let mut parser = Parser::new(tokens.unwrap());
     let ast = parser.parse_program();

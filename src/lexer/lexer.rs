@@ -64,6 +64,10 @@ pub enum Operator {
     LessThan,           // <
     GreaterThanOrEqual, // >=
     LessThanOrEqual,    // <=
+
+    // logical operators
+    LogicalAnd, // &&
+    LogicalOr,  // ||
 }
 
 pub struct Lexer<'a> {
@@ -231,6 +235,14 @@ impl<'a> Lexer<'a> {
                 self.next(); // consume the second operator
                 Token::Operator(Operator::Concat)
             }
+            ('&', Some('&')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::LogicalAnd)
+            }
+            ('|', Some('|')) => {
+                self.next(); // consume the second operator
+                Token::Operator(Operator::LogicalOr)
+            }
 
             // single char operators
             ('+', _) => Token::Operator(Operator::Plus),
@@ -283,9 +295,8 @@ impl<'a> Lexer<'a> {
                         _ => Token::Operator(Operator::Divide),
                     }
                 }
-                '+' | '-' | '<' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%' => {
-                    self.tokenize_operator()?
-                }
+                '+' | '-' | '<' | '>' | '=' | '*' | '(' | ')' | '{' | '}' | ',' | '!' | '%'
+                | '&' | '|' => self.tokenize_operator()?,
                 '.' => {
                     self.next();
                     Token::Period

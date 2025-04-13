@@ -387,6 +387,16 @@ impl VM {
                         return Err("Non bool value in condition".to_string());
                     }
                 }
+                Instruction::JumpIfTrue(address) => {
+                    if let Value::Boolean(condition) = self.pop()? {
+                        if condition {
+                            self.pc = address;
+                            continue;
+                        }
+                    } else {
+                        return Err("Non bool value in condition".to_string());
+                    }
+                }
 
                 // functions
                 Instruction::DeclareFunction(name, parameters, _return_type) => {

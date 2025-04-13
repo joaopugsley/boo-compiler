@@ -189,7 +189,19 @@ impl TypeChecker {
         }
 
         let left_type = self.check_node(left)?;
-        let right_type = self.check_node(right)?;
+
+        let right_type = match op {
+            Operator::LogicalAnd | Operator::LogicalOr => {
+                if left_type != Type::Bool {
+                    return Err(format!(
+                        "Type mismatch: expected 'Bool', found '{:?}'",
+                        left_type
+                    ));
+                }
+                self.check_node(right)?
+            }
+            _ => self.check_node(right)?,
+        };
 
         match op {
             Operator::Plus
@@ -213,6 +225,16 @@ impl TypeChecker {
                 }
 
                 Ok(Type::Num)
+            }
+            Operator::LogicalAnd | Operator::LogicalOr => {
+                if right_type != Type::Bool {
+                    return Err(format!(
+                        "Type mismatch: expected 'Bool', found '{:?}'",
+                        right_type
+                    ));
+                }
+
+                Ok(Type::Bool)
             }
             Operator::Concat => {
                 if left_type == Type::Void || right_type == Type::Void {

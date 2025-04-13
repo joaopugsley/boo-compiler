@@ -42,6 +42,7 @@ pub enum Instruction {
     // control flow
     Jump(usize),        // jump to ix index
     JumpIfFalse(usize), // conditional jump
+    JumpIfTrue(usize),  // conditional jump if true
 
     // functions
     DeclareFunction(String, Vec<Parameter>, Option<Type>),
@@ -102,6 +103,9 @@ impl Bytecode {
                     }
                     Instruction::JumpIfFalse(_) => {
                         self.instructions[pos] = Instruction::JumpIfFalse(target);
+                    }
+                    Instruction::JumpIfTrue(_) => {
+                        self.instructions[pos] = Instruction::JumpIfTrue(target);
                     }
                     _ => panic!("Non jump instruction in jump points"),
                 }
@@ -290,6 +294,54 @@ impl Bytecode {
                     } else {
                         return Err("Left side of assignment must be an identifier".to_string());
                     }
+                }
+                Operator::LogicalAnd => {
+                    // compile left side
+                    self.compile_node(*left)?;
+
+                    // generate a unique label for the short-circuit
+                    let skip_label = self.generate_label("and_skip");
+                    let end_label = self.generate_label("and_end");
+
+                    // if left side is false, jump to end (short-circuit)
+                    self.add_jump(Instruction::JumpIfFalse(0), &skip_label);
+
+                    // left side is true, evaluate right side
+                    self.compile_node(*right)?;
+
+                    // jump to end
+                    self.add_jump(Instruction::Jump(0), &end_label);
+
+                    // skip label - left side was false, push false and skip right side
+                    self.create_label(&skip_label);
+                    self.instructions.push(Instruction::PushBoolean(false));
+
+                    // end label
+                    self.create_label(&end_label);
+                }
+                Operator::LogicalOr => {
+                    // compile left side
+                    self.compile_node(*left)?;
+
+                    // generate a unique label for the short-circuit
+                    let skip_label = self.generate_label("or_skip");
+                    let end_label = self.generate_label("or_end");
+
+                    // if left side is true, jump to skip (short-circuit)
+                    self.add_jump(Instruction::JumpIfTrue(0), &skip_label);
+
+                    // left side is false, evaluate right side
+                    self.compile_node(*right)?;
+
+                    // jump to end
+                    self.add_jump(Instruction::Jump(0), &end_label);
+
+                    // skip label - left side was true, push true and skip right side
+                    self.create_label(&skip_label);
+                    self.instructions.push(Instruction::PushBoolean(true));
+
+                    // end label
+                    self.create_label(&end_label);
                 }
                 _ => {
                     self.compile_node(*left)?;

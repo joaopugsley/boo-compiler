@@ -403,7 +403,10 @@ impl Parser {
                 Operator::PowAssign,
                 Operator::ModAssign,
             ],
-            // comparison operators (next lowest precedence)
+            // logical operators
+            vec![Operator::LogicalOr],
+            vec![Operator::LogicalAnd],
+            // comparison operators
             vec![
                 Operator::Equals,
                 Operator::NotEquals,
