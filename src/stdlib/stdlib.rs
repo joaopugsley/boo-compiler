@@ -68,7 +68,7 @@ pub fn register_stdlib_types(checker: &mut TypeChecker) {
     checker.register_native_function_type("print", Type::Void);
 
     // register string methods
-    checker.register_string_method_type("len", Type::Str);
+    checker.register_string_method_type("len", Type::Num);
     checker.register_string_method_type("to_string", Type::Str);
 
     // register number methods
