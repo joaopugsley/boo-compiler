@@ -66,6 +66,16 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Result<ASTNode, String> {
+        // Check for unary operators first
+        if let Some(Token::Operator(Operator::LogicalNot)) = self.tokens.peek() {
+            self.tokens.next(); // consume the !
+            let operand = self.parse_primary()?;
+            return Ok(ASTNode::UnaryOperation {
+                op: Operator::LogicalNot,
+                operand: Box::new(operand),
+            });
+        }
+
         let mut node = match self.tokens.next() {
             Some(Token::LeftParen) => {
                 let expr = self.parse_expression()?;

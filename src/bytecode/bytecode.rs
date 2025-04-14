@@ -14,6 +14,7 @@ pub enum Instruction {
     PushVoid,
     Pop,
     Negate,
+    LogicalNot,
 
     // variables
     LoadVariable(String),
@@ -169,6 +170,7 @@ impl Bytecode {
                 self.compile_node(*operand)?;
                 match op {
                     Operator::UnaryMinus => self.instructions.push(Instruction::Negate),
+                    Operator::LogicalNot => self.instructions.push(Instruction::LogicalNot),
                     _ => return Err(format!("Unsupported unary operator: {:?}", op)),
                 }
             }

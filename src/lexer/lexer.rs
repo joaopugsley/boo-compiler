@@ -68,6 +68,7 @@ pub enum Operator {
     // logical operators
     LogicalAnd, // &&
     LogicalOr,  // ||
+    LogicalNot, // !
 }
 
 pub struct Lexer<'a> {
@@ -253,6 +254,7 @@ impl<'a> Lexer<'a> {
             ('=', _) => Token::Operator(Operator::AssignEquals),
             ('>', _) => Token::Operator(Operator::GreaterThan),
             ('<', _) => Token::Operator(Operator::LessThan),
+            ('!', _) => Token::Operator(Operator::LogicalNot),
             ('(', _) => Token::LeftParen,
             (')', _) => Token::RightParen,
             ('{', _) => Token::LeftBrace,

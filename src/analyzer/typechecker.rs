@@ -113,6 +113,15 @@ impl TypeChecker {
                         }
                         Ok(Type::Num)
                     }
+                    Operator::LogicalNot => {
+                        if operand_type != Type::Bool {
+                            return Err(format!(
+                                "Type mismatch: expected 'Bool', found '{:?}'",
+                                operand_type
+                            ));
+                        }
+                        Ok(Type::Bool)
+                    }
                     _ => Err(format!("Unsupported unary operator: {:?}", op)),
                 }
             }
@@ -282,7 +291,9 @@ impl TypeChecker {
 
                 Ok(Type::Void)
             }
-            Operator::UnaryMinus => unreachable!("UnaryMinus is not a binary operator"),
+            Operator::UnaryMinus | Operator::LogicalNot => {
+                unreachable!("{:?} is not a binary operator", op)
+            }
         }
     }
 

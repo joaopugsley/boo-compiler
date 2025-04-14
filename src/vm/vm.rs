@@ -154,6 +154,15 @@ impl VM {
                         _ => return Err("Cannot negate non-numeric value".to_string()),
                     }
                 }
+                Instruction::LogicalNot => {
+                    let value = self.pop()?;
+                    match value {
+                        Value::Boolean(b) => self.push(Value::Boolean(!b)),
+                        _ => {
+                            return Err("Cannot apply logical NOT to non-boolean value".to_string())
+                        }
+                    }
+                }
 
                 // variable operations
                 Instruction::LoadVariable(name) => {
