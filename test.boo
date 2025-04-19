@@ -89,7 +89,7 @@ fun fibonacci(num n) -> num {
 num fib = fibonacci(10);
 print(fib);
 
-str result2323 = fibonacci(10).to_string().len();
+str result2323 = fibonacci(10).to_string().len().to_string();
 print(result2323);
 
 fun factorial(num n) -> num {
