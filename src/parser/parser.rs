@@ -36,6 +36,10 @@ pub enum ASTNode {
         then_body: Vec<ASTNode>,
         else_body: Option<Vec<ASTNode>>,
     },
+    WhileStatement {
+        condition: Box<ASTNode>,
+        body: Vec<ASTNode>,
+    },
     VariableDeclaration {
         var_type: Type,
         name: String,
@@ -355,6 +359,37 @@ impl Parser {
         })
     }
 
+    fn parse_while_statement(&mut self) -> Result<ASTNode, String> {
+        // parse condition
+        match self.tokens.next() {
+            Some(Token::LeftParen) => (),
+            Some(token) => return Err(format!("Expected '(' after 'while', found {:?}", token)),
+            _ => return Err("Unexpected end of input".to_string()),
+        };
+
+        let condition = self.parse_expression()?;
+
+        match self.tokens.next() {
+            Some(Token::RightParen) => (),
+            Some(token) => return Err(format!("Expected ')', found {:?}", token)),
+            _ => return Err("Unexpected end of input".to_string()),
+        };
+
+        // parse while body
+        match self.tokens.next() {
+            Some(Token::LeftBrace) => (),
+            Some(token) => return Err(format!("Expected '{{', found {:?}", token)),
+            _ => return Err("Unexpected end of input".to_string()),
+        };
+
+        let body = self.parse_block()?;
+
+        Ok(ASTNode::WhileStatement {
+            condition: Box::new(condition),
+            body,
+        })
+    }
+
     fn parse_variable_declaration(&mut self, var_type: Type) -> Result<ASTNode, String> {
         match self.tokens.next() {
             Some(Token::Identifier(name)) => match self.tokens.next() {
@@ -383,6 +418,10 @@ impl Parser {
             Some(Token::Keyword(Keyword::If)) => {
                 self.tokens.next();
                 self.parse_if_statement()
+            }
+            Some(Token::Keyword(Keyword::While)) => {
+                self.tokens.next();
+                self.parse_while_statement()
             }
             Some(Token::Type(t)) => {
                 let var_type = t.clone();

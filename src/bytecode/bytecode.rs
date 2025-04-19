@@ -488,6 +488,36 @@ impl Bytecode {
                 // label for end of if statement
                 self.create_label(&end_label);
             }
+            ASTNode::WhileStatement { condition, body } => {
+                let start_label = self.generate_label("while_start");
+                let end_label = self.generate_label("while_end");
+
+                // create start label before the condition
+                self.create_label(&start_label);
+
+                // compile condition
+                self.compile_node(*condition)?;
+
+                // jump to end of while statement if condition is false
+                self.add_jump(Instruction::JumpIfFalse(0), &end_label);
+
+                // enter scope for body
+                self.instructions.push(Instruction::EnterScope);
+
+                // compile body
+                for stmt in body {
+                    self.compile_node(stmt)?;
+                }
+
+                // exit scope
+                self.instructions.push(Instruction::ExitScope);
+
+                // jump back to start of while statement
+                self.add_jump(Instruction::Jump(0), &start_label);
+
+                // label for end of while statement
+                self.create_label(&end_label);
+            }
             ASTNode::VariableDeclaration {
                 var_type,
                 name,

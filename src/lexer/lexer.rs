@@ -32,6 +32,7 @@ pub enum Keyword {
     Return,
     If,
     Else,
+    While,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -158,6 +159,7 @@ impl<'a> Lexer<'a> {
             "return" => Token::Keyword(Keyword::Return),
             "if" => Token::Keyword(Keyword::If),
             "else" => Token::Keyword(Keyword::Else),
+            "while" => Token::Keyword(Keyword::While),
 
             // types
             "str" => Token::Type(Type::Str),

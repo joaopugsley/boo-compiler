@@ -142,6 +142,9 @@ impl TypeChecker {
                 then_body,
                 else_body,
             } => self.check_if_statement(*condition, then_body, else_body),
+            ASTNode::WhileStatement { condition, body } => {
+                self.check_while_statement(*condition, body)
+            }
             ASTNode::VariableDeclaration {
                 var_type,
                 name,
@@ -178,6 +181,27 @@ impl TypeChecker {
             for node in else_body {
                 self.check_node(node)?;
             }
+        }
+
+        Ok(Type::Void)
+    }
+
+    fn check_while_statement(
+        &mut self,
+        condition: ASTNode,
+        body: Vec<ASTNode>,
+    ) -> Result<Type, String> {
+        let condition_type = self.check_node(condition)?;
+
+        if condition_type != Type::Bool {
+            return Err(format!(
+                "Type mismatch: expected 'Bool', found '{:?}'",
+                condition_type
+            ));
+        }
+
+        for node in body {
+            self.check_node(node)?;
         }
 
         Ok(Type::Void)
